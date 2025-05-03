@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import asyncio
 import aiohttp
 import aiofiles
@@ -9,7 +8,6 @@ import zipfile
 import argparse
 import logging
 from typing import List, Tuple, Dict, Optional
-
 
 #################################################################
 # Logging
@@ -27,12 +25,12 @@ def linfo(message: str, *args) -> None:
 def lerror(message: str, *args) -> None:
     """Concise error logging"""
     logging.error(message, *args)
+
 #################################################################
 # Main Class
 #################################################################
 class DepotFileDownloader:
     def __init__(self) -> None:
-        # Load repositories from JSON file
         self._repos = self._load_repositories()
         
     def _load_repositories(self) -> Dict[str, str]:
@@ -85,6 +83,7 @@ class DepotFileDownloader:
                 
         lerror("%s -> max retries", __fn_name__)
         return None
+    
     #################################################################
     # Find and Download Files
     #################################################################    
@@ -154,8 +153,7 @@ class DepotFileDownloader:
                                     if "tree" in v_r2_json:
                                         v_collected_depots = []
 
-                                        # Try Key.vdf first, then config.vdf
-                                        v_vdf_paths = ["Key.vdf", "config.vdf"]
+                                        v_vdf_paths = ["Key.vdf", "key.vdf", "config.vdf"]
                                         for v_vdf_path in v_vdf_paths:
                                             v_vdf_result = await self._get_manifest(v_sha, v_vdf_path, v_save_dir, v_repo)
                                             if v_vdf_result:
@@ -185,6 +183,7 @@ class DepotFileDownloader:
         except KeyboardInterrupt:
             lerror("%s -> interrupted", __fn_name__)
             return [], ""
+    
     #################################################################
     # Output Dumped Files
     #################################################################
@@ -210,13 +209,10 @@ class DepotFileDownloader:
     def _zip_outcome(self, a_save_dir: str, a_selected_repos: List[str]) -> None:
         __fn_name__ = "_zip_outcome"
         linfo("%s -> zipping", __fn_name__)
-        
 
         v_is_encrypted = any(self._repos[v_repo] == "Encrypted" for v_repo in a_selected_repos)
 
-
         v_save_dir = os.path.normpath(a_save_dir)
-
 
         v_zip_name = (
             os.path.basename(v_save_dir) + " - encrypted.zip"
@@ -226,14 +222,12 @@ class DepotFileDownloader:
         v_zip_path = os.path.join(os.path.dirname(v_save_dir), v_zip_name)
 
         try:
-
             with zipfile.ZipFile(v_zip_path, "w", zipfile.ZIP_DEFLATED) as v_zipf:
                 for v_root, v_dirs, v_files in os.walk(v_save_dir):
                     for v_file in v_files:
                         v_file_path = os.path.join(v_root, v_file)
                         v_arcname = os.path.relpath(v_file_path, start=v_save_dir)
                         v_zipf.write(v_file_path, v_arcname)
-
 
             for v_root, v_dirs, v_files in os.walk(v_save_dir, topdown=False):
                 for v_file in v_files:
@@ -257,20 +251,17 @@ class DepotFileDownloader:
         if not self._repos:
             lerror("%s -> no repos", __fn_name__)
             return
-        
 
         v_selected_repo_list = list(self._repos.keys())
         
         linfo("%s -> download start", __fn_name__)
         linfo("%s -> using repos", __fn_name__)
         
-
         v_collected_depots, v_save_dir = await self._download_and_process(a_appid, a_game_name, v_selected_repo_list)
         
         if v_collected_depots:
             v_lua_script = self._parse_vdf_to_lua(v_collected_depots, a_appid, v_save_dir)
             v_lua_file_path = os.path.join(v_save_dir, f"{a_appid}.lua")
-            
             try:
                 async with aiofiles.open(v_lua_file_path, "w", encoding="utf-8") as v_lua_file:
                     await v_lua_file.write(v_lua_script)
@@ -283,13 +274,12 @@ class DepotFileDownloader:
         else:
             lerror("%s -> no depots", __fn_name__)
 
-
 async def _main() -> None:
     __fn_name__ = "_main"
     linfo("%s -> starting", __fn_name__)
     
     v_parser = argparse.ArgumentParser(description='Steam Depot Downloader CLI')
-    v_parser.add_argument('appid', help='appid to download')
+    v_parser.add_argument('appid', help='Appid to download')
     v_parser.add_argument('--name', help='Game name (optional, defaults to appid)')
     v_args = v_parser.parse_args()
     
@@ -297,7 +287,6 @@ async def _main() -> None:
     
     v_downloader = DepotFileDownloader()
     await v_downloader._process_appid(v_args.appid, v_game_name)
-
 
 if __name__ == "__main__":
     asyncio.run(_main())
